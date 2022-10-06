@@ -24,7 +24,7 @@ var getColorForPercentage = function (pct) {
     b: Math.floor(lower.color.b * pctLower + upper.color.b * pctUpper),
   };
 
-  let textColor = color.r * 0.299 + color.g * 0.587 + color.b * 0.114 > 186 ? 'black' : 'white';
+  let textColor = 'black';
   return { textColor, backgroundColor: 'rgb(' + [color.r, color.g, color.b].join(',') + ')' };
   // or output as hex if preferred
 };
