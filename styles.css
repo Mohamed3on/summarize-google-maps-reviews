@@ -9,10 +9,11 @@
   margin: auto;
   justify-content: space-between;
   align-items: center;
-  background-color: black;
+  background-color: white;
+  gap: 2px;
 }
 
-#reviews-container > div {
+#reviews-container > * {
   width: 100%;
   text-align: center;
   padding: 8px;
@@ -22,4 +23,14 @@
   display: flex;
   justify-content: center;
   align-items: center;
+}
+
+#reviews-container > button {
+  background-color: rebeccapurple;
+  cursor: pointer;
+  color: white;
+}
+
+#trusted-reviews {
+  font-size: 14px;
 }

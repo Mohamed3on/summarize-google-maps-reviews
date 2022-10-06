@@ -76,31 +76,55 @@ const parseReviews = (reviews) => {
   const recentReviewScorePercentage = reviewsScore / totalTrustedReviews;
 
   let recentReviewScoreElement = document.querySelector('#reviews-container');
-  let reviewScoreAsPercentageElement;
+  let reviewScoreAsPercentageElement = document.querySelector('#reviews-score');
+  let trustedReviewsElement = document.querySelector('#trusted-reviews');
+
   if (!recentReviewScoreElement) {
     recentReviewScoreElement = document.createElement('div');
     recentReviewScoreElement.id = 'reviews-container';
 
     document.body.appendChild(recentReviewScoreElement);
+
     reviewScoreAsPercentageElement = document.createElement('div');
+    reviewScoreAsPercentageElement.id = 'reviews-score';
+    recentReviewScoreElement.appendChild(reviewScoreAsPercentageElement);
+
+    trustedReviewsElement = document.createElement('div');
+    trustedReviewsElement.id = 'trusted-reviews';
+    recentReviewScoreElement.appendChild(trustedReviewsElement);
+
+    const resetButton = document.createElement('button');
+    resetButton.innerText = 'Reset';
+    resetButton.onclick = () => {
+      reviewMap = {};
+      queueReviews();
+    };
+    recentReviewScoreElement.appendChild(resetButton);
   }
 
-  // const reviewScoreAsPercentage = Math.round(recentReviewScorePercentage * 100);
-  // reviewScoreAsPercentageElement.innerText = `${reviewScoreAsPercentage}%`;
+  reviewScoreAsPercentageElement.innerText = `${Math.round(recentReviewScorePercentage * 100)}%`;
 
   const trustedReviewsRatio = totalTrustedReviews / Object.keys(reviewMap).length;
-  recentReviewScoreElement.innerHTML = `<div id="review-score">${Math.round(
-    recentReviewScorePercentage * 100
-  )}%</div> <div id="trusted-reviews"> ${Math.round(trustedReviewsRatio * 100)}% trusted out of ${
-    Object.keys(reviewMap).length
-  } reviews</div>`;
 
-  applyColorsForElement(document.querySelector('#review-score'), recentReviewScorePercentage);
+  trustedReviewsElement.innerText = `${Math.round(trustedReviewsRatio * 100)}% trusted out of ${
+    Object.keys(reviewMap).length
+  } reviews`;
+
+  applyColorsForElement(document.querySelector('#reviews-score'), recentReviewScorePercentage);
   applyColorsForElement(document.querySelector('#trusted-reviews'), trustedReviewsRatio);
 };
 
 let lastPlaceName = location.href.match(/(?:place\/)([^\/]+)/)?.[1];
 
+const queueReviews = () => {
+  const reviews = document.querySelectorAll('.jftiEf.fontBodyMedium');
+  const newReviews = Array.from(reviews).filter(
+    (review) => !reviewMap[review.getAttribute('data-review-id')]
+  );
+  if (newReviews.length) {
+    parseReviews(newReviews);
+  }
+};
 const observer = new MutationObserver(async function () {
   let placeName = location.href.match(/(?:place\/)([^\/]+)/)?.[1];
 
@@ -111,12 +135,7 @@ const observer = new MutationObserver(async function () {
       reviewMap = {};
     }
 
-    const newReviews = Array.from(reviews).filter(
-      (review) => !reviewMap[review.getAttribute('data-review-id')]
-    );
-    if (newReviews.length) {
-      parseReviews(newReviews);
-    }
+    queueReviews();
   } else document.querySelector('#reviews-container')?.remove();
 });
 
