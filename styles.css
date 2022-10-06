@@ -1,0 +1,25 @@
+#reviews-container {
+  position: absolute;
+  margin: auto;
+  border-radius: 8px;
+  left: 56px;
+  height: 56px;
+  display: flex;
+  width: 354px;
+  margin: auto;
+  justify-content: space-between;
+  align-items: center;
+  background-color: black;
+}
+
+#reviews-container > div {
+  width: 100%;
+  text-align: center;
+  padding: 8px;
+  border-radius: 8px;
+
+  height: -webkit-fill-available;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
