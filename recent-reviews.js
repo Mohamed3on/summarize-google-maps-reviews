@@ -102,11 +102,13 @@ const parseReviews = (reviews) => {
     recentReviewScoreElement.appendChild(resetButton);
   }
 
-  reviewScoreAsPercentageElement.innerText = `${Math.round(recentReviewScorePercentage * 100)}%`;
+  reviewScoreAsPercentageElement.innerText = `${Math.round(
+    reviewsScore * recentReviewScorePercentage
+  )} - ${Math.round(recentReviewScorePercentage * 100)}%`;
 
   const trustedReviewsRatio = totalTrustedReviews / Object.keys(reviewMap).length;
 
-  trustedReviewsElement.innerText = `${Math.round(trustedReviewsRatio * 100)}% trusted out of ${
+  trustedReviewsElement.innerText = `${totalTrustedReviews} reviews trusted out of ${
     Object.keys(reviewMap).length
   } reviews`;
 
