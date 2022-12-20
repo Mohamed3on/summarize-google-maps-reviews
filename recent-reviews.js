@@ -43,10 +43,17 @@ const parseReviews = (reviews) => {
       return;
     }
 
-    const rating = review
-      .querySelector('[role="img"].kvMYJc')
-      .getAttribute('aria-label')
-      .match(/(\d)(?<!stars)/)?.[0];
+    let rating;
+
+    try {
+      rating = review
+        .querySelector('[role="img"].kvMYJc')
+        .getAttribute('aria-label')
+        .match(/(\d)(?<!stars)/)?.[0];
+      // for hotels, the rating format is different (4/5)
+    } catch (e) {
+      rating = review.querySelector('span.fzvQIb').innerText.match(/\d/)?.[0];
+    }
 
     const reviewerNumberOfReviews =
       review.querySelector('.RfnDt > span:nth-child(2)')?.innerText.match(/(\d+)/)?.[0] || 1;
