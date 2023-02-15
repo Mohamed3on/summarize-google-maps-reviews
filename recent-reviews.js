@@ -58,20 +58,14 @@ const parseReviews = (reviews) => {
     const reviewerNumberOfReviews =
       review.querySelector('.RfnDt > span:nth-child(2)')?.innerText.match(/(\d+)/)?.[0] || 1;
 
-    const IsReviewInThePastYear = !review.querySelector('.rsqaWe')?.innerText.match(/year/);
-
     reviewMap[reviewId] = {
       rating: parseInt(rating),
       reviewerNumberOfReviews: parseInt(reviewerNumberOfReviews),
-      isOldReview: !IsReviewInThePastYear,
     };
   });
 
   const { reviewsScore, totalTrustedReviews } = Object.values(reviewMap).reduce(
-    (acc, { rating, reviewerNumberOfReviews, isOldReview }) => {
-      if (isOldReview) {
-        return acc;
-      }
+    (acc, { rating, reviewerNumberOfReviews }) => {
       if (reviewerNumberOfReviews > 2) {
         acc.totalTrustedReviews++;
         if (rating === 5) {
