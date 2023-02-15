@@ -67,13 +67,13 @@ const parseReviews = (reviews) => {
     };
   });
 
-  const { reviewsScore, trustedReviewsInPastYear } = Object.values(reviewMap).reduce(
+  const { reviewsScore, totalTrustedReviews } = Object.values(reviewMap).reduce(
     (acc, { rating, reviewerNumberOfReviews, isOldReview }) => {
       if (isOldReview) {
         return acc;
       }
       if (reviewerNumberOfReviews > 2) {
-        acc.trustedReviewsInPastYear++;
+        acc.totalTrustedReviews++;
         if (rating === 5) {
           acc.reviewsScore++;
         }
@@ -83,10 +83,10 @@ const parseReviews = (reviews) => {
       }
       return acc;
     },
-    { reviewsScore: 0, trustedReviewsInPastYear: 0 }
+    { reviewsScore: 0, totalTrustedReviews: 0 }
   );
 
-  const recentReviewScorePercentage = reviewsScore / trustedReviewsInPastYear;
+  const recentReviewScorePercentage = reviewsScore / totalTrustedReviews;
 
   let recentReviewScoreElement = document.querySelector('#reviews-container');
   let reviewScoreAsPercentageElement = document.querySelector('#reviews-score');
@@ -119,9 +119,14 @@ const parseReviews = (reviews) => {
     reviewsScore * recentReviewScorePercentage
   )} - ${Math.round(recentReviewScorePercentage * 100)}%`;
 
-  trustedReviewsElement.innerText = `${trustedReviewsInPastYear} trusted reviews in past year`;
+  const trustedReviewsRatio = totalTrustedReviews / Object.keys(reviewMap).length;
+
+  trustedReviewsElement.innerText = `${totalTrustedReviews} reviews trusted out of ${
+    Object.keys(reviewMap).length
+  } reviews`;
 
   applyColorsForElement(document.querySelector('#reviews-score'), recentReviewScorePercentage);
+  applyColorsForElement(document.querySelector('#trusted-reviews'), trustedReviewsRatio);
 };
 
 let lastPlaceName = location.href.match(/(?:place\/)([^\/]+)/)?.[1];
