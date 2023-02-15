@@ -6,7 +6,7 @@
   "author": "Mohamed Oun",
   "content_scripts": [
     {
-      "matches": ["*://*.google.com/maps/place/*"],
+      "matches": ["*://*.google.com/maps/*", "*://*.google.com/maps/*"],
       "js": ["recent-reviews.js"],
       "css": ["styles.css"],
 
