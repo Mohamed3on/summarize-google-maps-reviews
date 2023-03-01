@@ -1,5 +1,33 @@
 let reviewMap = {};
 
+let currentOption = 'total';
+
+const reviewsScores = {
+  total: 0,
+  inPastYear: 0,
+  inPastMonth: 0,
+};
+
+const trustedReviews = {
+  total: 0,
+  inPastYear: 0,
+  inPastMonth: 0,
+};
+
+const resetReviewData = () => {
+  reviewsScores.total = 0;
+  reviewsScores.inPastYear = 0;
+  reviewsScores.inPastMonth = 0;
+  trustedReviews.total = 0;
+  trustedReviews.inPastYear = 0;
+  trustedReviews.inPastMonth = 0;
+};
+const reset = () => {
+  reviewMap = {};
+  currentOption = 'total';
+  resetReviewData();
+};
+
 var percentColors = [
   { pct: 0.0, color: { r: 0xff, g: 0x00, b: 0 } },
   { pct: 0.5, color: { r: 0xff, g: 0xff, b: 0 } },
@@ -35,6 +63,50 @@ const applyColorsForElement = (element, percentage) => {
   element.style.backgroundColor = backgroundColor;
 };
 
+const getReviewScores = (reviewMap) => {
+  resetReviewData();
+  return Object.values(reviewMap).reduce(
+    (acc, { rating, reviewerNumberOfReviews, inPastYear, inPastMonth }) => {
+      if (reviewerNumberOfReviews > 2) {
+        acc.trustedReviews.total++;
+
+        if (inPastMonth) {
+          acc.trustedReviews.inPastMonth++;
+        }
+        if (inPastYear) {
+          acc.trustedReviews.inPastYear++;
+        }
+
+        if (rating === 5) {
+          acc.reviewsScores.total++;
+          if (inPastMonth) {
+            acc.reviewsScores.inPastMonth++;
+          }
+          if (inPastYear) {
+            acc.reviewsScores.inPastYear++;
+          }
+        }
+
+        if (rating === 1) {
+          acc.reviewsScores.total--;
+
+          if (inPastMonth) {
+            acc.reviewsScores.inPastMonth--;
+          }
+          if (inPastYear) {
+            acc.reviewsScores.inPastYear--;
+          }
+        }
+      }
+      return acc;
+    },
+    {
+      reviewsScores,
+      trustedReviews,
+    }
+  );
+};
+
 const parseReviews = (reviews) => {
   Array.from(reviews).forEach((review) => {
     const reviewId = review.getAttribute('data-review-id');
@@ -58,29 +130,25 @@ const parseReviews = (reviews) => {
     const reviewerNumberOfReviews =
       review.querySelector('.RfnDt > span:nth-child(2)')?.innerText.match(/(\d+)/)?.[0] || 1;
 
+    const IsReviewYoungerThanAYear = !review.querySelector('.rsqaWe')?.innerText.match(/year/);
+    const isReviewYoungerThanAMonth =
+      IsReviewYoungerThanAYear && !review.querySelector('.rsqaWe')?.innerText.match(/month/);
+
     reviewMap[reviewId] = {
       rating: parseInt(rating),
       reviewerNumberOfReviews: parseInt(reviewerNumberOfReviews),
+      inPastYear: IsReviewYoungerThanAYear,
+      inPastMonth: isReviewYoungerThanAMonth,
     };
   });
 
-  const { reviewsScore, totalTrustedReviews } = Object.values(reviewMap).reduce(
-    (acc, { rating, reviewerNumberOfReviews }) => {
-      if (reviewerNumberOfReviews > 2) {
-        acc.totalTrustedReviews++;
-        if (rating === 5) {
-          acc.reviewsScore++;
-        }
-        if (rating === 1) {
-          acc.reviewsScore--;
-        }
-      }
-      return acc;
-    },
-    { reviewsScore: 0, totalTrustedReviews: 0 }
-  );
+  const { reviewsScores, trustedReviews } = getReviewScores(reviewMap);
 
-  const recentReviewScorePercentage = reviewsScore / totalTrustedReviews;
+  const options = {
+    total: 'Total',
+    inPastYear: 'Past Year',
+    inPastMonth: 'Past Month',
+  };
 
   let recentReviewScoreElement = document.querySelector('#reviews-container');
   let reviewScoreAsPercentageElement = document.querySelector('#reviews-score');
@@ -100,27 +168,43 @@ const parseReviews = (reviews) => {
     trustedReviewsElement.id = 'trusted-reviews';
     recentReviewScoreElement.appendChild(trustedReviewsElement);
 
-    const resetButton = document.createElement('button');
-    resetButton.innerText = 'Reset';
-    resetButton.onclick = () => {
-      reviewMap = {};
-      queueReviews();
+    const selectOptionElement = document.createElement('select');
+    selectOptionElement.id = 'select-option';
+
+    Object.keys(options).forEach((option) => {
+      const optionElement = document.createElement('option');
+      optionElement.value = option;
+      optionElement.innerText = options[option];
+      selectOptionElement.appendChild(optionElement);
+    });
+    selectOptionElement.onchange = () => {
+      currentOption = selectOptionElement.value;
+      renderValuesInThePage();
     };
-    recentReviewScoreElement.appendChild(resetButton);
+    recentReviewScoreElement.appendChild(selectOptionElement);
   }
 
-  reviewScoreAsPercentageElement.innerText = `${Math.round(
-    reviewsScore * recentReviewScorePercentage
-  )} - ${Math.round(recentReviewScorePercentage * 100)}%`;
+  const renderValuesInThePage = () => {
+    const recentReviewScorePercentage =
+      reviewsScores[currentOption] / trustedReviews[currentOption] || 0;
 
-  const trustedReviewsRatio = totalTrustedReviews / Object.keys(reviewMap).length;
+    console.log('reviewsScores', reviewsScores, trustedReviews);
 
-  trustedReviewsElement.innerText = `${totalTrustedReviews} reviews trusted out of ${
-    Object.keys(reviewMap).length
-  } reviews`;
+    reviewScoreAsPercentageElement.innerText = `${Math.round(
+      reviewsScores[currentOption] * recentReviewScorePercentage
+    )} - ${Math.round(recentReviewScorePercentage * 100)}%`;
 
-  applyColorsForElement(document.querySelector('#reviews-score'), recentReviewScorePercentage);
-  applyColorsForElement(document.querySelector('#trusted-reviews'), trustedReviewsRatio);
+    const trustedReviewsRatio = trustedReviews[currentOption] / Object.keys(reviewMap).length;
+
+    trustedReviewsElement.innerText = `${trustedReviews[currentOption]} reviews trusted out of ${
+      Object.keys(reviewMap).length
+    } reviews`;
+
+    applyColorsForElement(document.querySelector('#reviews-score'), recentReviewScorePercentage);
+    applyColorsForElement(document.querySelector('#trusted-reviews'), trustedReviewsRatio);
+  };
+
+  renderValuesInThePage();
 };
 
 let lastPlaceName = location.href.match(/(?:place\/)([^\/]+)/)?.[1];
@@ -141,12 +225,12 @@ const observer = new MutationObserver(async function () {
   if (reviews.length > 4) {
     if (placeName !== lastPlaceName) {
       lastPlaceName = placeName;
-      reviewMap = {};
+      reset();
     }
 
     queueReviews();
   } else {
-    reviewMap = {};
+    reset();
     document.querySelector('#reviews-container')?.remove();
   }
 });
