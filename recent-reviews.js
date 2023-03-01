@@ -145,7 +145,10 @@ const observer = new MutationObserver(async function () {
     }
 
     queueReviews();
-  } else document.querySelector('#reviews-container')?.remove();
+  } else {
+    reviewMap = {};
+    document.querySelector('#reviews-container')?.remove();
+  }
 });
 
 observer.observe(document.body, {
