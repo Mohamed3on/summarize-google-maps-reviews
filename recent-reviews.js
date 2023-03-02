@@ -188,20 +188,13 @@ const parseReviews = (reviews) => {
     const recentReviewScorePercentage =
       reviewsScores[currentOption] / trustedReviews[currentOption] || 0;
 
-    console.log('reviewsScores', reviewsScores, trustedReviews);
-
     reviewScoreAsPercentageElement.innerText = `${Math.round(
       reviewsScores[currentOption] * recentReviewScorePercentage
     )} - ${Math.round(recentReviewScorePercentage * 100)}%`;
 
-    const trustedReviewsRatio = trustedReviews[currentOption] / Object.keys(reviewMap).length;
-
-    trustedReviewsElement.innerText = `${trustedReviews[currentOption]} reviews trusted out of ${
-      Object.keys(reviewMap).length
-    } reviews`;
+    trustedReviewsElement.innerText = `${trustedReviews[currentOption]} trusted reviews in this period`;
 
     applyColorsForElement(document.querySelector('#reviews-score'), recentReviewScorePercentage);
-    applyColorsForElement(document.querySelector('#trusted-reviews'), trustedReviewsRatio);
   };
 
   renderValuesInThePage();

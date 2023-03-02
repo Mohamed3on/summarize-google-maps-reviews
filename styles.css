@@ -25,12 +25,7 @@
   align-items: center;
 }
 
-#reviews-container > button {
-  background-color: rebeccapurple;
-  cursor: pointer;
-  color: white;
-}
-
 #trusted-reviews {
   font-size: 14px;
+  background-color: aquamarine;
 }
