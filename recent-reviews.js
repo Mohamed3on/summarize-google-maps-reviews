@@ -1,6 +1,8 @@
 let reviewMap = {};
 
-let currentOption = 'total';
+const INITIAL_OPTION = 'inPastMonth';
+
+let currentOption = INITIAL_OPTION;
 
 const reviewsScores = {
   total: 0,
@@ -24,7 +26,6 @@ const resetReviewData = () => {
 };
 const reset = () => {
   reviewMap = {};
-  currentOption = 'total';
   resetReviewData();
 };
 
@@ -145,9 +146,9 @@ const parseReviews = (reviews) => {
   const { reviewsScores, trustedReviews } = getReviewScores(reviewMap);
 
   const options = {
-    total: 'Total',
-    inPastYear: 'Past Year',
     inPastMonth: 'Past Month',
+    inPastYear: 'Past Year',
+    total: 'Total',
   };
 
   let recentReviewScoreElement = document.querySelector('#reviews-container');
