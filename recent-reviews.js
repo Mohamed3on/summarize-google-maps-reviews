@@ -129,7 +129,7 @@ const parseReviews = (reviews) => {
     }
 
     const reviewerNumberOfReviews =
-      review.querySelector('.RfnDt > span:nth-child(2)')?.innerText.match(/(\d+)/)?.[0] || 1;
+      review.querySelector('.RfnDt')?.innerText.match(/(\d+)/)?.[0] || 1;
 
     const IsReviewYoungerThanAYear = !review.querySelector('.rsqaWe')?.innerText.match(/year/);
     const isReviewYoungerThanAMonth =
