@@ -8,7 +8,7 @@
     {
       "matches": ["*://*.google.com/maps/*", "*://*.google.com/maps/*"],
       "js": ["recent-reviews.js"],
-      "css": ["styles.css", "./react-app/build/main.css"],
+      "css": ["styles.css"],
 
       "run_at": "document_end"
     }
