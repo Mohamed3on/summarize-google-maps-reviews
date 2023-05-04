@@ -131,9 +131,12 @@ const parseReviews = (reviews) => {
     const reviewerNumberOfReviews =
       review.querySelector('.RfnDt')?.innerText.match(/(\d+)/)?.[0] || 1;
 
-    const IsReviewYoungerThanAYear = !review.querySelector('.rsqaWe')?.innerText.match(/year/);
+    const IsReviewYoungerThanAYear = !review
+      .querySelector('.rsqaWe, .xRkPPb')
+      ?.innerText.match(/year/);
     const isReviewYoungerThanAMonth =
-      IsReviewYoungerThanAYear && !review.querySelector('.rsqaWe')?.innerText.match(/month/);
+      IsReviewYoungerThanAYear &&
+      !review.querySelector('.rsqaWe, .xRkPPb')?.innerText.match(/month/);
 
     reviewMap[reviewId] = {
       rating: parseInt(rating),
