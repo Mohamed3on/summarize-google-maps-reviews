@@ -1,6 +1,6 @@
 let reviewMap = {};
 
-const INITIAL_OPTION = 'inPastMonth';
+const INITIAL_OPTION = 'inPastYear';
 
 let currentOption = INITIAL_OPTION;
 
