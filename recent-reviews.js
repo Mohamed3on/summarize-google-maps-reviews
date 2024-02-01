@@ -1,6 +1,6 @@
 let reviewMap = {};
 
-const INITIAL_OPTION = 'inPastYear';
+const INITIAL_OPTION = 'total';
 
 let currentOption = INITIAL_OPTION;
 
@@ -16,6 +16,12 @@ const trustedReviews = {
   inPastMonth: 0,
 };
 
+const totalReviews = {
+  total: 0,
+  inPastYear: 0,
+  inPastMonth: 0,
+};
+
 const resetReviewData = () => {
   reviewsScores.total = 0;
   reviewsScores.inPastYear = 0;
@@ -23,6 +29,10 @@ const resetReviewData = () => {
   trustedReviews.total = 0;
   trustedReviews.inPastYear = 0;
   trustedReviews.inPastMonth = 0;
+
+  totalReviews.total = 0;
+  totalReviews.inPastYear = 0;
+  totalReviews.inPastMonth = 0;
 };
 const reset = () => {
   reviewMap = {};
@@ -64,10 +74,25 @@ const applyColorsForElement = (element, percentage) => {
   element.style.backgroundColor = backgroundColor;
 };
 
+const applyColorsForTrustedReviews = (element, percentage) => {
+  if (percentage < 0.35) {
+    element.style.color = 'black';
+    element.style.backgroundColor = 'red';
+  }
+};
+
 const getReviewScores = (reviewMap) => {
   resetReviewData();
   return Object.values(reviewMap).reduce(
     (acc, { rating, reviewerNumberOfReviews, inPastYear, inPastMonth }) => {
+      acc.totalReviews.total++;
+
+      if (inPastMonth) {
+        acc.totalReviews.inPastMonth++;
+      }
+      if (inPastYear) {
+        acc.totalReviews.inPastYear++;
+      }
       if (reviewerNumberOfReviews > 2) {
         acc.trustedReviews.total++;
 
@@ -104,6 +129,7 @@ const getReviewScores = (reviewMap) => {
     {
       reviewsScores,
       trustedReviews,
+      totalReviews,
     }
   );
 };
@@ -146,7 +172,7 @@ const parseReviews = (reviews) => {
     };
   });
 
-  const { reviewsScores, trustedReviews } = getReviewScores(reviewMap);
+  const { reviewsScores, trustedReviews, totalReviews } = getReviewScores(reviewMap);
 
   const options = {
     inPastMonth: 'Past Month',
@@ -196,9 +222,17 @@ const parseReviews = (reviews) => {
       reviewsScores[currentOption] * recentReviewScorePercentage
     )} - ${Math.round(recentReviewScorePercentage * 100)}%`;
 
-    trustedReviewsElement.innerText = `${trustedReviews[currentOption]} trusted reviews in this period`;
+    trustedReviewsElement.innerText = `${
+      trustedReviews[currentOption]
+    } trusted reviews in this period (${Math.round(
+      (trustedReviews[currentOption] / totalReviews[currentOption]) * 100
+    )}%)`;
 
     applyColorsForElement(document.querySelector('#reviews-score'), recentReviewScorePercentage);
+    applyColorsForTrustedReviews(
+      document.querySelector('#trusted-reviews'),
+      trustedReviews[currentOption] / totalReviews[currentOption]
+    );
   };
 
   renderValuesInThePage();
