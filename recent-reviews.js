@@ -78,6 +78,9 @@ const applyColorsForTrustedReviews = (element, percentage) => {
   if (percentage < 0.35) {
     element.style.color = 'black';
     element.style.backgroundColor = 'red';
+  } else {
+    element.style.color = 'black';
+    element.style.backgroundColor = 'aquamarine';
   }
 };
 
