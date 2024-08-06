@@ -1,31 +1,71 @@
 #reviews-container {
-  position: absolute;
-  margin: auto;
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  background-color: rgba(255, 255, 255, 0.9);
   border-radius: 8px;
-  right: 56px;
-  height: 56px;
+  padding: 10px;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 9999;
+  max-width: 250px;
+}
+
+#reviews-score,
+#trusted-reviews {
+  margin-bottom: 8px;
+  padding: 5px;
+  border-radius: 4px;
+}
+
+.controls-container {
   display: flex;
-  width: 354px;
-  margin: auto;
   justify-content: space-between;
   align-items: center;
+  margin-top: 10px;
+}
+
+#select-option {
+  padding: 5px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
   background-color: white;
-  gap: 2px;
+  font-size: 12px;
 }
 
-#reviews-container > * {
-  width: 100%;
-  text-align: center;
-  padding: 8px;
-  border-radius: 8px;
+#scroll-button {
+  padding: 5px 10px;
+  border-radius: 4px;
+  border: none;
+  background-color: #4285f4;
+  color: white;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
 
-  height: -webkit-fill-available;
+#scroll-button:hover {
+  background-color: #3367d6;
+}
+
+.scroll-buttons {
   display: flex;
-  justify-content: center;
-  align-items: center;
+  gap: 5px;
 }
 
-#trusted-reviews {
-  font-size: 14px;
-  background-color: aquamarine;
+#scroll-to-top-button {
+  padding: 2px 5px;
+  border-radius: 4px;
+  border: none;
+  background-color: #34a853;
+  color: white;
+  font-size: 10px;
+  cursor: pointer;
+  width: 32px;
+  transition: background-color 0.3s;
+}
+
+#scroll-to-top-button:hover {
+  background-color: #2e8b47;
 }

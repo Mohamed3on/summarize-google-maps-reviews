@@ -1,248 +1,172 @@
-let reviewMap = {};
-
-const INITIAL_OPTION = 'total';
-
-let currentOption = INITIAL_OPTION;
-
-const reviewsScores = {
-  total: 0,
-  inPastYear: 0,
-  inPastMonth: 0,
-};
-
-const trustedReviews = {
-  total: 0,
-  inPastYear: 0,
-  inPastMonth: 0,
-};
-
-const totalReviews = {
-  total: 0,
-  inPastYear: 0,
-  inPastMonth: 0,
-};
-
-const resetReviewData = () => {
-  reviewsScores.total = 0;
-  reviewsScores.inPastYear = 0;
-  reviewsScores.inPastMonth = 0;
-  trustedReviews.total = 0;
-  trustedReviews.inPastYear = 0;
-  trustedReviews.inPastMonth = 0;
-
-  totalReviews.total = 0;
-  totalReviews.inPastYear = 0;
-  totalReviews.inPastMonth = 0;
-};
-const reset = () => {
-  reviewMap = {};
-  resetReviewData();
-};
-
-var percentColors = [
+// Constants and State
+const TIME_PERIODS = ['total', 'inPastYear', 'inPastMonth'];
+const PERCENT_COLORS = [
   { pct: 0.0, color: { r: 0xff, g: 0x00, b: 0 } },
   { pct: 0.5, color: { r: 0xff, g: 0xff, b: 0 } },
   { pct: 1.0, color: { r: 0x00, g: 0xff, b: 0 } },
 ];
 
-var getColorForPercentage = function (pct) {
-  for (var i = 1; i < percentColors.length - 1; i++) {
-    if (pct < percentColors[i].pct) {
-      break;
+let reviewMap = {};
+let currentOption = 'total';
+
+// Helper functions
+const createDataObject = () => Object.fromEntries(TIME_PERIODS.map((period) => [period, 0]));
+
+const reviewData = {
+  reviewsScores: createDataObject(),
+  trustedReviews: createDataObject(),
+  totalReviews: createDataObject(),
+};
+
+const reset = () => {
+  reviewMap = {};
+  Object.values(reviewData).forEach((data) => TIME_PERIODS.forEach((period) => (data[period] = 0)));
+};
+
+const getColorForPercentage = (pct) => {
+  const i = PERCENT_COLORS.findIndex((color) => pct < color.pct) || PERCENT_COLORS.length - 1;
+  const [lower, upper] = [PERCENT_COLORS[i - 1], PERCENT_COLORS[i]];
+  const rangePct = (pct - lower.pct) / (upper.pct - lower.pct);
+  const color = ['r', 'g', 'b'].reduce((acc, key) => {
+    acc[key] = Math.floor(lower.color[key] * (1 - rangePct) + upper.color[key] * rangePct);
+    return acc;
+  }, {});
+  return { textColor: 'black', backgroundColor: `rgb(${Object.values(color).join(',')})` };
+};
+
+const applyColors = (element, percentage, isTrusted = false) => {
+  const styles = isTrusted
+    ? { color: 'black', backgroundColor: percentage < 0.35 ? 'red' : 'aquamarine' }
+    : getColorForPercentage(percentage);
+  Object.assign(element.style, styles);
+};
+
+// Review processing
+const processReview = (review) => {
+  const { rating, reviewerNumberOfReviews } = review;
+  const isTrusted = reviewerNumberOfReviews > 2;
+
+  TIME_PERIODS.forEach((period) => {
+    if (period === 'total' || review[period]) {
+      reviewData.totalReviews[period]++;
+      if (isTrusted) {
+        reviewData.trustedReviews[period]++;
+        reviewData.reviewsScores[period] += rating === 5 ? 1 : rating === 1 ? -1 : 0;
+      }
     }
-  }
-  var lower = percentColors[i - 1];
-  var upper = percentColors[i];
-  var range = upper.pct - lower.pct;
-  var rangePct = (pct - lower.pct) / range;
-  var pctLower = 1 - rangePct;
-  var pctUpper = rangePct;
-  var color = {
-    r: Math.floor(lower.color.r * pctLower + upper.color.r * pctUpper),
-    g: Math.floor(lower.color.g * pctLower + upper.color.g * pctUpper),
-    b: Math.floor(lower.color.b * pctLower + upper.color.b * pctUpper),
-  };
-
-  let textColor = 'black';
-  return { textColor, backgroundColor: 'rgb(' + [color.r, color.g, color.b].join(',') + ')' };
-  // or output as hex if preferred
-};
-
-const applyColorsForElement = (element, percentage) => {
-  let { textColor, backgroundColor } = getColorForPercentage(percentage);
-  element.style.color = textColor;
-  element.style.backgroundColor = backgroundColor;
-};
-
-const applyColorsForTrustedReviews = (element, percentage) => {
-  if (percentage < 0.35) {
-    element.style.color = 'black';
-    element.style.backgroundColor = 'red';
-  } else {
-    element.style.color = 'black';
-    element.style.backgroundColor = 'aquamarine';
-  }
-};
-
-const getReviewScores = (reviewMap) => {
-  resetReviewData();
-  return Object.values(reviewMap).reduce(
-    (acc, { rating, reviewerNumberOfReviews, inPastYear, inPastMonth }) => {
-      acc.totalReviews.total++;
-
-      if (inPastMonth) {
-        acc.totalReviews.inPastMonth++;
-      }
-      if (inPastYear) {
-        acc.totalReviews.inPastYear++;
-      }
-      if (reviewerNumberOfReviews > 2) {
-        acc.trustedReviews.total++;
-
-        if (inPastMonth) {
-          acc.trustedReviews.inPastMonth++;
-        }
-        if (inPastYear) {
-          acc.trustedReviews.inPastYear++;
-        }
-
-        if (rating === 5) {
-          acc.reviewsScores.total++;
-          if (inPastMonth) {
-            acc.reviewsScores.inPastMonth++;
-          }
-          if (inPastYear) {
-            acc.reviewsScores.inPastYear++;
-          }
-        }
-
-        if (rating === 1) {
-          acc.reviewsScores.total--;
-
-          if (inPastMonth) {
-            acc.reviewsScores.inPastMonth--;
-          }
-          if (inPastYear) {
-            acc.reviewsScores.inPastYear--;
-          }
-        }
-      }
-      return acc;
-    },
-    {
-      reviewsScores,
-      trustedReviews,
-      totalReviews,
-    }
-  );
+  });
 };
 
 const parseReviews = (reviews) => {
   Array.from(reviews).forEach((review) => {
     const reviewId = review.getAttribute('data-review-id');
+    if (reviewMap[reviewId]) return;
 
-    if (reviewMap[reviewId]) {
-      return;
-    }
-
-    let rating;
-
-    try {
-      rating = review
+    const rating =
+      review
         .querySelector('[role="img"].kvMYJc')
-        .getAttribute('aria-label')
-        .match(/(\d)(?<!stars)/)?.[0];
-      // for hotels, the rating format is different (4/5)
-    } catch (e) {
-      rating = review.querySelector('span.fzvQIb').innerText.match(/\d/)?.[0];
-    }
+        ?.getAttribute('aria-label')
+        .match(/(\d)(?<!stars)/)?.[0] ||
+      review.querySelector('span.fzvQIb')?.innerText.match(/\d/)?.[0];
 
     const reviewerNumberOfReviews =
       review.querySelector('.RfnDt')?.innerText.match(/(\d+)/)?.[0] || 1;
-
-    const IsReviewYoungerThanAYear = !review
-      .querySelector('.rsqaWe, .xRkPPb')
-      ?.innerText.match(/year/);
-    const isReviewYoungerThanAMonth =
-      IsReviewYoungerThanAYear &&
-      !review.querySelector('.rsqaWe, .xRkPPb')?.innerText.match(/month/);
+    const reviewDate = review.querySelector('.rsqaWe, .xRkPPb')?.innerText || '';
 
     reviewMap[reviewId] = {
       rating: parseInt(rating),
       reviewerNumberOfReviews: parseInt(reviewerNumberOfReviews),
-      inPastYear: IsReviewYoungerThanAYear,
-      inPastMonth: isReviewYoungerThanAMonth,
+      inPastYear: !reviewDate.includes('year'),
+      inPastMonth: !reviewDate.includes('year') && !reviewDate.includes('month'),
     };
   });
 
-  const { reviewsScores, trustedReviews, totalReviews } = getReviewScores(reviewMap);
-
-  const options = {
-    inPastMonth: 'Past Month',
-    inPastYear: 'Past Year',
-    total: 'Total',
-  };
-
-  let recentReviewScoreElement = document.querySelector('#reviews-container');
-  let reviewScoreAsPercentageElement = document.querySelector('#reviews-score');
-  let trustedReviewsElement = document.querySelector('#trusted-reviews');
-
-  if (!recentReviewScoreElement) {
-    recentReviewScoreElement = document.createElement('div');
-    recentReviewScoreElement.id = 'reviews-container';
-
-    document.body.appendChild(recentReviewScoreElement);
-
-    reviewScoreAsPercentageElement = document.createElement('div');
-    reviewScoreAsPercentageElement.id = 'reviews-score';
-    recentReviewScoreElement.appendChild(reviewScoreAsPercentageElement);
-
-    trustedReviewsElement = document.createElement('div');
-    trustedReviewsElement.id = 'trusted-reviews';
-    recentReviewScoreElement.appendChild(trustedReviewsElement);
-
-    const selectOptionElement = document.createElement('select');
-    selectOptionElement.id = 'select-option';
-
-    Object.keys(options).forEach((option) => {
-      const optionElement = document.createElement('option');
-      optionElement.value = option;
-      optionElement.innerText = options[option];
-      selectOptionElement.appendChild(optionElement);
-    });
-    selectOptionElement.onchange = () => {
-      currentOption = selectOptionElement.value;
-      renderValuesInThePage();
-    };
-    recentReviewScoreElement.appendChild(selectOptionElement);
-  }
-
-  const renderValuesInThePage = () => {
-    const recentReviewScorePercentage =
-      reviewsScores[currentOption] / trustedReviews[currentOption] || 0;
-
-    reviewScoreAsPercentageElement.innerText = `${Math.round(
-      reviewsScores[currentOption] * recentReviewScorePercentage
-    )} - ${Math.round(recentReviewScorePercentage * 100)}%`;
-
-    trustedReviewsElement.innerText = `${
-      trustedReviews[currentOption]
-    } trusted reviews in this period (${Math.round(
-      (trustedReviews[currentOption] / totalReviews[currentOption]) * 100
-    )}%)`;
-
-    applyColorsForElement(document.querySelector('#reviews-score'), recentReviewScorePercentage);
-    applyColorsForTrustedReviews(
-      document.querySelector('#trusted-reviews'),
-      trustedReviews[currentOption] / totalReviews[currentOption]
-    );
-  };
-
-  renderValuesInThePage();
+  Object.values(reviewMap).forEach(processReview);
+  updateUI();
 };
 
-let lastPlaceName = location.href.match(/(?:place\/)([^\/]+)/)?.[1];
+// UI management
+const createUIElements = () => {
+  const container = document.createElement('div');
+  container.id = 'reviews-container';
 
+  ['reviews-score', 'trusted-reviews'].forEach((id) => {
+    const element = document.createElement('div');
+    element.id = id;
+    container.appendChild(element);
+  });
+
+  const controlsContainer = document.createElement('div');
+  controlsContainer.className = 'controls-container';
+
+  const selectElement = document.createElement('select');
+  selectElement.id = 'select-option';
+  TIME_PERIODS.forEach((option) => {
+    const optionElement = document.createElement('option');
+    optionElement.value = option;
+    optionElement.innerText =
+      option === 'total' ? 'Total' : option === 'inPastYear' ? 'Past Year' : 'Past Month';
+    selectElement.appendChild(optionElement);
+  });
+  selectElement.onchange = (e) => {
+    currentOption = e.target.value;
+    updateUI();
+  };
+  controlsContainer.appendChild(selectElement);
+
+  const scrollButtonsContainer = document.createElement('div');
+  scrollButtonsContainer.className = 'scroll-buttons';
+
+  const scrollButton = document.createElement('button');
+  scrollButton.id = 'scroll-button';
+  scrollButton.innerText = 'Auto-scroll';
+  scrollButton.onclick = scrollUntilStabilized;
+  scrollButtonsContainer.appendChild(scrollButton);
+
+  const scrollToTopButton = document.createElement('button');
+  scrollToTopButton.id = 'scroll-to-top-button';
+  scrollToTopButton.innerText = '↑';
+  scrollToTopButton.onclick = scrollToFirstReview;
+  scrollButtonsContainer.appendChild(scrollToTopButton);
+
+  controlsContainer.appendChild(scrollButtonsContainer);
+
+  container.appendChild(controlsContainer);
+
+  document.body.appendChild(container);
+};
+
+const getReviewScorePercentage = () => {
+  const { reviewsScores, trustedReviews } = reviewData;
+  return reviewsScores[currentOption] / trustedReviews[currentOption] || 0;
+};
+
+const updateUI = () => {
+  const scoreElement = document.querySelector('#reviews-score');
+  const trustedElement = document.querySelector('#trusted-reviews');
+
+  if (!scoreElement) {
+    createUIElements();
+    return updateUI();
+  }
+
+  const { reviewsScores, trustedReviews, totalReviews } = reviewData;
+  const recentReviewScorePercentage = getReviewScorePercentage();
+
+  scoreElement.innerText = `${Math.round(
+    reviewsScores[currentOption] * recentReviewScorePercentage
+  )} - ${Math.round(recentReviewScorePercentage * 100)}%`;
+  trustedElement.innerText = `${
+    trustedReviews[currentOption]
+  } trusted reviews in this period (${Math.round(
+    (trustedReviews[currentOption] / totalReviews[currentOption]) * 100
+  )}%)`;
+
+  applyColors(scoreElement, recentReviewScorePercentage);
+  applyColors(trustedElement, trustedReviews[currentOption] / totalReviews[currentOption], true);
+};
+
+// Main logic
 const queueReviews = () => {
   const reviews = document.querySelectorAll('.jftiEf.fontBodyMedium');
   const newReviews = Array.from(reviews).filter(
@@ -252,16 +176,17 @@ const queueReviews = () => {
     parseReviews(newReviews);
   }
 };
-const observer = new MutationObserver(async function () {
-  let placeName = location.href.match(/(?:place\/)([^\/]+)/)?.[1];
 
+let lastPlaceName = '';
+const observer = new MutationObserver(() => {
+  const placeName = location.href.match(/(?:place\/)([^\/]+)/)?.[1];
   const reviews = document.querySelectorAll('.jftiEf.fontBodyMedium');
+
   if (reviews.length > 4) {
     if (placeName !== lastPlaceName) {
       lastPlaceName = placeName;
       reset();
     }
-
     queueReviews();
   } else {
     reset();
@@ -269,7 +194,98 @@ const observer = new MutationObserver(async function () {
   }
 });
 
-observer.observe(document.body, {
-  childList: true,
-  subtree: true,
-});
+observer.observe(document.body, { childList: true, subtree: true });
+
+// Modify these variables
+let isScrolling = false;
+let lastPercentage = null;
+
+const scrollToLastReview = () => {
+  const reviews = document.querySelectorAll('[data-review-id]');
+  const lastReview = [...reviews].pop();
+  if (lastReview) {
+    lastReview.scrollIntoView();
+  } else {
+    console.error('No review found');
+  }
+};
+
+// Simplify the checkStabilization function
+const checkStabilization = (currentPercentage) => {
+  if (lastPercentage === null) {
+    lastPercentage = currentPercentage;
+    return false;
+  }
+  const isStabilized = Math.abs(currentPercentage - lastPercentage) <= 1;
+  lastPercentage = currentPercentage;
+  return isStabilized;
+};
+
+const waitForNewReviews = async (timeout = 5000) => {
+  const startTime = Date.now();
+  const initialReviewCount = document.querySelectorAll('[data-review-id]').length;
+
+  while (Date.now() - startTime < timeout) {
+    await new Promise((resolve) => setTimeout(resolve, 100)); // Check every 100ms
+    const currentReviewCount = document.querySelectorAll('[data-review-id]').length;
+    if (currentReviewCount > initialReviewCount) {
+      return true; // New reviews have appeared
+    }
+  }
+  return false; // Timeout reached, no new reviews
+};
+
+const scrollUntilStabilized = async () => {
+  if (isScrolling) return;
+  isScrolling = true;
+  lastPercentage = null;
+
+  while (isScrolling) {
+    scrollToLastReview();
+
+    const newReviewsAppeared = await waitForNewReviews();
+    if (!newReviewsAppeared) {
+      console.log('No new reviews appeared after 5 seconds. Stopping scroll.');
+      isScrolling = false;
+      break;
+    }
+
+    queueReviews();
+
+    const newPercentage = Math.round(getReviewScorePercentage() * 100);
+    if (checkStabilization(newPercentage)) {
+      isScrolling = false;
+    }
+
+    // Update UI after each scroll
+    updateUI();
+
+    // Add a small delay to prevent excessive CPU usage
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  // Reset scrolling state and update UI one final time
+  isScrolling = false;
+  updateUI();
+
+  // Notify the user that scrolling has finished
+  console.log('Scrolling finished. Reviews have stabilized or all reviews have been loaded.');
+};
+
+const scrollToFirstReview = () => {
+  const top = document.querySelector('.fontDisplayLarge');
+  if (top) {
+    top.scrollIntoView();
+  }
+};
+
+// Add this function to load the CSS file
+const loadStyles = () => {
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = 'styles.css';
+  document.head.appendChild(link);
+};
+
+// Call this function before creating UI elements
+loadStyles();
