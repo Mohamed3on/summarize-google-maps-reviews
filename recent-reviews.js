@@ -24,14 +24,26 @@ const reset = () => {
 };
 
 const getColorForPercentage = (pct) => {
-  const i = PERCENT_COLORS.findIndex((color) => pct < color.pct) || PERCENT_COLORS.length - 1;
-  const [lower, upper] = [PERCENT_COLORS[i - 1], PERCENT_COLORS[i]];
+  // Find the appropriate color range
+  const i = PERCENT_COLORS.findIndex((color) => pct <= color.pct);
+  const [lower, upper] = [
+    PERCENT_COLORS[Math.max(0, i - 1)],
+    PERCENT_COLORS[Math.min(PERCENT_COLORS.length - 1, i)],
+  ];
+
+  // Calculate the percentage within this specific range
   const rangePct = (pct - lower.pct) / (upper.pct - lower.pct);
+
+  // Interpolate the color
   const color = ['r', 'g', 'b'].reduce((acc, key) => {
-    acc[key] = Math.floor(lower.color[key] * (1 - rangePct) + upper.color[key] * rangePct);
+    acc[key] = Math.round(lower.color[key] + rangePct * (upper.color[key] - lower.color[key]));
     return acc;
   }, {});
-  return { textColor: 'black', backgroundColor: `rgb(${Object.values(color).join(',')})` };
+
+  return {
+    textColor: 'black',
+    backgroundColor: `rgb(${color.r},${color.g},${color.b})`,
+  };
 };
 
 const applyColors = (element, percentage, isTrusted = false) => {
