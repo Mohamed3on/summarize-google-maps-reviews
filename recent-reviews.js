@@ -75,14 +75,18 @@ const parseReviews = (reviews) => {
     const reviewerNumberOfReviews =
       review.querySelector('.RfnDt')?.innerText.match(/(\d+)/)?.[0] || 1;
     const reviewDate = review.querySelector('.rsqaWe, .xRkPPb')?.innerText || '';
-    reviewMap[reviewId] = {
+
+    const reviewData = {
       rating: parseInt(rating),
       reviewerNumberOfReviews: parseInt(reviewerNumberOfReviews),
       inPastYear: !reviewDate.includes('year'),
       inPastMonth: !reviewDate.includes('year') && !reviewDate.includes('month'),
     };
+    processReview(reviewData);
+
+    reviewMap[reviewId] = reviewData;
   });
-  Object.values(reviewMap).forEach(processReview);
+
   updateUI();
 };
 
