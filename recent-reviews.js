@@ -104,7 +104,8 @@ const calculateFullPercentage = () => {
   };
   const fiveStars = extractNumber(reviewRows[0].getAttribute('aria-label'));
   const oneStars = extractNumber(reviewRows[4].getAttribute('aria-label'));
-  const allReviews = extractNumber(document.querySelector('.jANrlb>.fontBodySmall')?.innerText);
+  const allReviewsText = document.querySelector('.jANrlb>.fontBodySmall')?.innerText;
+  const allReviews = allReviewsText ? parseInt(allReviewsText.match(/\d+/g)?.join('') || '0', 10) : 0;
   if (!allReviews) return null;
   return Math.round(((fiveStars - oneStars) / allReviews) * 100);
 };
