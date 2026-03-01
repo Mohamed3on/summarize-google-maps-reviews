@@ -1,98 +1,46 @@
 // Constants
 const TIME_PERIODS = ['total', 'inPastYear', 'inPastMonth'];
-const PERCENT_COLORS = [
-  { pct: 0.0, color: { r: 0xff, g: 0x00, b: 0 } },
-  { pct: 0.5, color: { r: 0xff, g: 0xff, b: 0 } },
-  { pct: 1.0, color: { r: 0x00, g: 0xff, b: 0 } },
-];
+const PAGE_SIZE = 20;
+const MIN_PAGES_BEFORE_STABILIZE = 2;
 
 // State
-let reviewMap = {};
 let currentOption = 'total';
 let fullPercentage = null;
-let isScrolling = false;
-let lastPercentage = null;
 let lastPlaceName = '';
+let abortControllers = { relevant: null, newest: null };
 
-const reviewData = {
-  reviewsScores: Object.fromEntries(TIME_PERIODS.map((period) => [period, 0])),
-  trustedReviews: Object.fromEntries(TIME_PERIODS.map((period) => [period, 0])),
-  totalReviews: Object.fromEntries(TIME_PERIODS.map((period) => [period, 0])),
+const makeReviewData = () => ({
+  reviewsScores: Object.fromEntries(TIME_PERIODS.map((p) => [p, 0])),
+  trustedReviews: Object.fromEntries(TIME_PERIODS.map((p) => [p, 0])),
+  totalReviews: Object.fromEntries(TIME_PERIODS.map((p) => [p, 0])),
+});
+
+const scores = {
+  relevant: { reviewMap: {}, reviewData: makeReviewData(), isFetching: false, done: false, cursor: '', pageCount: 0 },
+  newest: { reviewMap: {}, reviewData: makeReviewData(), isFetching: false, done: false, cursor: '', pageCount: 0 },
 };
 
-// Helper functions
-const reset = () => {
-  reviewMap = {};
-  Object.values(reviewData).forEach((data) => TIME_PERIODS.forEach((period) => (data[period] = 0)));
-  fullPercentage = calculateFullPercentage();
+// Helpers
+const resetScores = () => {
+  for (const key of ['relevant', 'newest']) {
+    scores[key] = { reviewMap: {}, reviewData: makeReviewData(), isFetching: false, done: false, cursor: '', pageCount: 0 };
+    if (abortControllers[key]) { abortControllers[key].abort(); abortControllers[key] = null; }
+  }
+  fullPercentage = null;
 };
 
-const getColorForPercentage = (pct) => {
-  const i = PERCENT_COLORS.findIndex((color) => pct <= color.pct);
-  const [lower, upper] = [
-    PERCENT_COLORS[Math.max(0, i - 1)],
-    PERCENT_COLORS[Math.min(PERCENT_COLORS.length - 1, i)],
+const getScoreColor = (pct) => {
+  const stops = [
+    { at: 0, r: 248, g: 113, b: 113 },
+    { at: 0.5, r: 251, g: 191, b: 36 },
+    { at: 1, r: 74, g: 222, b: 128 },
   ];
-  const rangePct = (pct - lower.pct) / (upper.pct - lower.pct);
-  const color = ['r', 'g', 'b'].reduce((acc, key) => {
-    acc[key] = Math.round(lower.color[key] + rangePct * (upper.color[key] - lower.color[key]));
-    return acc;
-  }, {});
-  return { textColor: 'black', backgroundColor: `rgb(${color.r},${color.g},${color.b})` };
-};
-
-const applyColors = (element, percentage, isTrusted = false) => {
-  const styles = isTrusted
-    ? { color: 'black', backgroundColor: percentage < 0.35 ? 'red' : 'aquamarine' }
-    : getColorForPercentage(percentage);
-  Object.assign(element.style, styles);
-};
-
-const processReview = (review) => {
-  const { rating, reviewerNumberOfReviews } = review;
-  const isTrusted = reviewerNumberOfReviews > 2;
-  TIME_PERIODS.forEach((period) => {
-    if (period === 'total' || review[period]) {
-      reviewData.totalReviews[period]++;
-      if (isTrusted) {
-        reviewData.trustedReviews[period]++;
-        reviewData.reviewsScores[period] += rating === 5 ? 1 : rating === 1 ? -1 : 0;
-      }
-    }
-  });
-};
-
-const parseReviews = (reviews) => {
-  Array.from(reviews).forEach((review) => {
-    const reviewId = review.getAttribute('data-review-id');
-    if (reviewMap[reviewId]) return;
-    const rating =
-      review
-        .querySelector('[role="img"].kvMYJc')
-        ?.getAttribute('aria-label')
-        .match(/(\d)(?<!stars)/)?.[0] ||
-      review.querySelector('span.fzvQIb')?.innerText.match(/\d/)?.[0];
-    const reviewerNumberOfReviews =
-      review.querySelector('.RfnDt')?.innerText.match(/(\d+)/)?.[0] || 1;
-    const reviewDate = review.querySelector('.rsqaWe, .xRkPPb')?.innerText || '';
-
-    const reviewData = {
-      rating: parseInt(rating),
-      reviewerNumberOfReviews: parseInt(reviewerNumberOfReviews),
-      inPastYear: !reviewDate.includes('year'),
-      inPastMonth: !reviewDate.includes('year') && !reviewDate.includes('month'),
-    };
-    processReview(reviewData);
-
-    reviewMap[reviewId] = reviewData;
-  });
-
-  updateUI();
-};
-
-const getReviewScorePercentage = () => {
-  const { reviewsScores, trustedReviews } = reviewData;
-  return reviewsScores[currentOption] / trustedReviews[currentOption] || 0;
+  const p = Math.max(0, Math.min(1, pct));
+  const i = stops.findIndex((s) => p <= s.at);
+  const lo = stops[Math.max(0, i - 1)];
+  const hi = stops[Math.min(stops.length - 1, i)];
+  const t = hi.at === lo.at ? 0 : (p - lo.at) / (hi.at - lo.at);
+  return `rgb(${Math.round(lo.r + (hi.r - lo.r) * t)},${Math.round(lo.g + (hi.g - lo.g) * t)},${Math.round(lo.b + (hi.b - lo.b) * t)})`;
 };
 
 const calculateFullPercentage = () => {
@@ -102,185 +50,277 @@ const calculateFullPercentage = () => {
     const match = str.match(/(\d+(?:[.,]\d+)*)\s*(?:reviews?|$)/);
     return match ? parseInt(match[1].replace(/[.,]/g, ''), 10) : 0;
   };
-  const fiveStars = extractNumber(reviewRows[0].getAttribute('aria-label'));
-  const oneStars = extractNumber(reviewRows[4].getAttribute('aria-label'));
-  const allReviewsText = document.querySelector('.jANrlb>.fontBodySmall')?.innerText;
-  const allReviews = allReviewsText ? parseInt(allReviewsText.match(/\d+/g)?.join('') || '0', 10) : 0;
+  const counts = Array.from(reviewRows).map((r) => extractNumber(r.getAttribute('aria-label')));
+  const allReviews = counts.reduce((a, b) => a + b, 0);
   if (!allReviews) return null;
-  return Math.round(((fiveStars - oneStars) / allReviews) * 100);
+  return Math.round(((counts[0] - counts[4]) / allReviews) * 100);
 };
 
-// UI functions
+// URL & API
+const getFeatureId = () => {
+  // Current place is always in the !3m5!1s section (last one in URL)
+  const matches = [...location.href.matchAll(/!3m\d+!1s(0x[a-f0-9]+(?:%3A|:)0x[a-f0-9]+)/gi)];
+  return matches.length ? decodeURIComponent(matches[matches.length - 1][1]) : null;
+};
+
+const buildUrl = (featureId, sort, cursor = '') => {
+  const hl = document.documentElement.lang || 'en';
+  const gl = location.href.match(/gl=([a-zA-Z]{2})/)?.[1] || '';
+  const sortVal = sort === 'newest' ? 2 : 1;
+  const pb = [
+    `!1m6!1s${featureId}!6m4!4m1!1e1!4m1!1e3`,
+    `!2m2!1i${PAGE_SIZE}!2s${encodeURIComponent(cursor)}`,
+    `!5m2!1s!7e81`,
+    `!8m9!2b1!3b1!5b1!7b1!12m4!1b1!2b1!4m1!1e1`,
+    `!11m4!1e3!2e1!6m1!1i2`,
+    `!13m1!1e${sortVal}`,
+  ].join('');
+  return `https://www.google.com/maps/rpc/listugcposts?authuser=0&hl=${hl}&gl=${gl}&pb=${pb}`;
+};
+
+// Response parsing — data[2][i][0] = [id, details, ratings]
+const parseReviewsResponse = (text) => {
+  try {
+    const cleaned = text.replace(/^\)\]\}'/, '');
+    const data = JSON.parse(cleaned);
+    const arr = data[2];
+    if (!arr?.length) return { reviews: [], nextCursor: null };
+    const reviews = [];
+    for (const wrapper of arr) {
+      if (!wrapper?.[0]) continue;
+      const r = wrapper[0];
+      const reviewId = r[0];
+      const stars = r[2]?.[0]?.[0];
+      const reviewerReviewCount = r[1]?.[4]?.[5]?.[5] || 1;
+      const timestamp = r[1]?.[2];
+      if (reviewId && stars) reviews.push({ reviewId, stars, reviewerReviewCount, timestamp });
+    }
+    return { reviews, nextCursor: data[1] || null };
+  } catch (e) {
+    console.error('[Reviews] Parse error:', e);
+    return { reviews: [], nextCursor: null };
+  }
+};
+
+const classifyTimePeriod = (timestamp) => {
+  if (!timestamp) return { inPastYear: false, inPastMonth: false };
+  const d = new Date(timestamp / 1000);
+  const now = new Date();
+  const yearAgo = new Date(now); yearAgo.setFullYear(now.getFullYear() - 1);
+  const monthAgo = new Date(now); monthAgo.setMonth(now.getMonth() - 1);
+  return { inPastYear: d >= yearAgo, inPastMonth: d >= monthAgo };
+};
+
+const processReview = (review, sortKey) => {
+  const rd = scores[sortKey].reviewData;
+  const isTrusted = review.reviewerReviewCount > 2;
+  const periods = classifyTimePeriod(review.timestamp);
+  TIME_PERIODS.forEach((period) => {
+    if (period === 'total' || periods[period]) {
+      rd.totalReviews[period]++;
+      if (isTrusted) {
+        rd.trustedReviews[period]++;
+        rd.reviewsScores[period] += review.stars === 5 ? 1 : review.stars === 1 ? -1 : 0;
+      }
+    }
+  });
+};
+
+const getScorePercentage = (sortKey) => {
+  const { reviewsScores, trustedReviews } = scores[sortKey].reviewData;
+  return reviewsScores[currentOption] / trustedReviews[currentOption] || 0;
+};
+
+// Fetch
+const fetchAllReviews = async (sortKey) => {
+  const featureId = getFeatureId();
+  if (!featureId || scores[sortKey].isFetching) return;
+
+  const state = scores[sortKey];
+  state.isFetching = true;
+  state.done = false;
+  const controller = new AbortController();
+  abortControllers[sortKey] = controller;
+  updateUI();
+
+  let lastPct = null;
+  try {
+    while (state.isFetching) {
+      const url = buildUrl(featureId, sortKey, state.cursor);
+      const resp = await fetch(url, { signal: controller.signal });
+      const { reviews, nextCursor } = parseReviewsResponse(await resp.text());
+
+      if (!reviews.length) break;
+      for (const r of reviews) {
+        if (!state.reviewMap[r.reviewId]) { state.reviewMap[r.reviewId] = r; processReview(r, sortKey); }
+      }
+      state.pageCount++;
+      updateUI();
+
+      if (state.pageCount >= MIN_PAGES_BEFORE_STABILIZE) {
+        const pct = Math.round(getScorePercentage(sortKey) * 100);
+        if (lastPct !== null && Math.abs(pct - lastPct) <= 1) {
+          console.log(`[Reviews] ${sortKey} stabilized at ${pct}% (${Object.keys(state.reviewMap).length} reviews)`);
+          break;
+        }
+        lastPct = pct;
+      }
+      if (!nextCursor) break;
+      state.cursor = nextCursor;
+    }
+  } catch (e) {
+    if (e.name !== 'AbortError') console.error(`[Reviews] ${sortKey} error:`, e);
+  }
+  state.isFetching = false;
+  state.done = true;
+  abortControllers[sortKey] = null;
+  updateUI();
+};
+
+const startFetching = () => {
+  if (!getFeatureId()) return;
+  fetchAllReviews('relevant');
+  fetchAllReviews('newest');
+};
+
+// UI — built with DOM methods (innerHTML is safe here but using DOM for clarity)
+const el = (tag, cls, text) => {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text) e.textContent = text;
+  return e;
+};
+
 const createUIElements = () => {
-  const container = document.createElement('div');
-  container.id = 'reviews-container';
-  ['reviews-score', 'trusted-reviews', 'review-trend'].forEach((id) => {
-    const element = document.createElement('div');
-    element.id = id;
-    container.appendChild(element);
+  const c = el('div'); c.id = 'reviews-container';
+
+  // Header
+  const header = el('div', 'rc-header');
+  const title = el('span', 'rc-title');
+  title.appendChild(el('span', 'rc-dot'));
+  title.appendChild(document.createTextNode('Review Analysis'));
+  header.appendChild(title);
+  const select = document.createElement('select'); select.id = 'rc-period';
+  [['total', 'Total'], ['inPastYear', 'Past Year'], ['inPastMonth', 'Past Month']].forEach(([v, t]) => {
+    const opt = document.createElement('option'); opt.value = v; opt.textContent = t; select.appendChild(opt);
   });
-  const controlsContainer = document.createElement('div');
-  controlsContainer.className = 'controls-container';
-  const selectElement = document.createElement('select');
-  selectElement.id = 'select-option';
-  TIME_PERIODS.forEach((option) => {
-    const optionElement = document.createElement('option');
-    optionElement.value = option;
-    optionElement.innerText =
-      option === 'total' ? 'Total' : option === 'inPastYear' ? 'Past Year' : 'Past Month';
-    selectElement.appendChild(optionElement);
-  });
-  selectElement.onchange = (e) => {
-    currentOption = e.target.value;
-    updateUI();
-  };
-  controlsContainer.appendChild(selectElement);
-  const scrollButtonsContainer = document.createElement('div');
-  scrollButtonsContainer.className = 'scroll-buttons';
-  ['Auto-scroll (⌥)', '↑'].forEach((text, index) => {
-    const button = document.createElement('button');
-    button.id = index === 0 ? 'scroll-button' : 'scroll-to-top-button';
-    button.innerText = text;
-    button.onclick = index === 0 ? scrollUntilStabilized : scrollToFirstReview;
-    scrollButtonsContainer.appendChild(button);
-  });
-  controlsContainer.appendChild(scrollButtonsContainer);
-  container.appendChild(controlsContainer);
-  document.body.appendChild(container);
+  select.onchange = (e) => { currentOption = e.target.value; updateUI(); };
+  header.appendChild(select);
+  c.appendChild(header);
+
+  // Score cards
+  const grid = el('div', 'rc-scores');
+  for (const sort of ['relevant', 'newest']) {
+    const card = el('div', 'rc-card'); card.dataset.sort = sort;
+    const head = el('div', 'rc-card-head');
+    head.appendChild(el('span', 'rc-card-label', sort === 'relevant' ? 'Relevant' : 'Newest'));
+    head.appendChild(el('span', 'rc-card-count'));
+    card.appendChild(head);
+    card.appendChild(el('div', 'rc-card-pct', '—'));
+    const bar = el('div', 'rc-card-bar');
+    bar.appendChild(el('div', 'rc-card-bar-fill'));
+    card.appendChild(bar);
+    card.appendChild(el('div', 'rc-card-detail'));
+    grid.appendChild(card);
+  }
+  c.appendChild(grid);
+
+  // Trend
+  const trend = el('div'); trend.id = 'rc-trend';
+  c.appendChild(trend);
+
+  document.body.appendChild(c);
 };
 
 const updateUI = () => {
-  const scoreElement = document.querySelector('#reviews-score');
-  const trustedElement = document.querySelector('#trusted-reviews');
-  const trendElement = document.querySelector('#review-trend');
-  if (!scoreElement) {
-    createUIElements();
-    return updateUI();
+  if (!document.querySelector('#reviews-container')) createUIElements();
+
+  for (const sortKey of ['relevant', 'newest']) {
+    const state = scores[sortKey];
+    const card = document.querySelector(`.rc-card[data-sort="${sortKey}"]`);
+    if (!card) continue;
+
+    const total = Object.keys(state.reviewMap).length;
+    const pct = getScorePercentage(sortKey);
+    const pctRound = Math.round(pct * 100);
+    const trusted = state.reviewData.trustedReviews[currentOption];
+    const all = state.reviewData.totalReviews[currentOption];
+
+    const pctEl = card.querySelector('.rc-card-pct');
+    if (total > 0) {
+      pctEl.textContent = `${pctRound}%`;
+      const color = getScoreColor(Math.max(0, pct));
+      pctEl.style.color = color;
+      pctEl.style.textShadow = `0 0 24px ${color}40`;
+    } else {
+      pctEl.textContent = '—';
+      pctEl.style.color = ''; pctEl.style.textShadow = '';
+    }
+
+    card.querySelector('.rc-card-bar-fill').style.width =
+      total > 0 ? `${Math.max(2, Math.min(100, (pct + 1) / 2 * 100))}%` : '0%';
+    card.querySelector('.rc-card-count').textContent = total > 0 ? total : '';
+    card.querySelector('.rc-card-detail').textContent = all > 0 ? `${trusted} trusted of ${all}` : '';
+    card.classList.toggle('loading', state.isFetching);
+    card.classList.toggle('done', state.done);
   }
-  const { reviewsScores, trustedReviews, totalReviews } = reviewData;
-  const recentReviewScorePercentage = getReviewScorePercentage();
-  scoreElement.innerText = `${Math.round(
-    reviewsScores[currentOption] * recentReviewScorePercentage
-  )} - ${Math.round(recentReviewScorePercentage * 100)}%`;
-  trustedElement.innerText = `${
-    trustedReviews[currentOption]
-  } trusted reviews in this period (${Math.round(
-    (trustedReviews[currentOption] / totalReviews[currentOption]) * 100
-  )}%)`;
-  applyColors(scoreElement, recentReviewScorePercentage);
-  applyColors(trustedElement, trustedReviews[currentOption] / totalReviews[currentOption], true);
-  if (fullPercentage !== null) {
-    const recentPercentage = Math.round(recentReviewScorePercentage * 100);
-    const difference = recentPercentage - fullPercentage;
-    const trendText = difference >= 0 ? 'Positive' : 'Negative';
-    const trendColor =
-      difference >= 0
-        ? `rgb(0, ${Math.min(255, 128 + Math.abs(difference) * 5)}, 0)`
-        : `rgb(${Math.min(255, 128 + Math.abs(difference) * 5)}, 0, 0)`;
-    trendElement.innerText = `${trendText} recent reviews trend (${
-      difference >= 0 ? '+' : ''
-    }${difference}%)`;
-    trendElement.style.backgroundColor = trendColor;
-    trendElement.classList.remove('trend-unavailable');
+
+  // Trend — compare each sort vs overall baseline from star breakdown
+  const trendEl = document.querySelector('#rc-trend');
+  fullPercentage = calculateFullPercentage();
+  const hasData = Object.keys(scores.relevant.reviewMap).length > 0 || Object.keys(scores.newest.reviewMap).length > 0;
+  const anyFetching = scores.relevant.isFetching || scores.newest.isFetching;
+
+  if (fullPercentage !== null && hasData) {
+    const lines = [];
+    for (const [key, label] of [['relevant', 'Relevant'], ['newest', 'Newest']]) {
+      if (Object.keys(scores[key].reviewMap).length === 0) continue;
+      const pct = Math.round(getScorePercentage(key) * 100);
+      const diff = pct - fullPercentage;
+      const sign = diff > 0 ? '+' : '';
+      const icon = diff > 1 ? '↗' : diff < -1 ? '↘' : '→';
+      lines.push(`${icon} ${label} ${sign}${diff}% vs overall (${fullPercentage}%)`);
+    }
+    trendEl.textContent = lines.join('\n');
+    // Color based on worst trend
+    const diffs = ['relevant', 'newest']
+      .filter(k => Object.keys(scores[k].reviewMap).length > 0)
+      .map(k => Math.round(getScorePercentage(k) * 100) - fullPercentage);
+    const worst = Math.min(...diffs);
+    trendEl.className = `rc-trend ${worst > 1 ? 'positive' : worst < -1 ? 'negative' : 'neutral'}`;
+  } else if (hasData && !anyFetching) {
+    // No star breakdown available — compare sorts to each other
+    const relPct = Math.round(getScorePercentage('relevant') * 100);
+    const newPct = Math.round(getScorePercentage('newest') * 100);
+    const diff = newPct - relPct;
+    if (Math.abs(diff) <= 1) { trendEl.textContent = '→ Consistent across sort orders'; trendEl.className = 'rc-trend neutral'; }
+    else if (diff > 0) { trendEl.textContent = `↗ Newest +${diff}% vs Relevant`; trendEl.className = 'rc-trend positive'; }
+    else { trendEl.textContent = `↘ Newest ${diff}% vs Relevant`; trendEl.className = 'rc-trend negative'; }
+  } else if (anyFetching) {
+    trendEl.textContent = 'Analyzing reviews…';
+    trendEl.className = 'rc-trend loading';
   } else {
-    trendElement.innerText = 'Recent trend data not available';
-    trendElement.classList.add('trend-unavailable');
+    trendEl.textContent = '';
+    trendEl.className = 'rc-trend';
   }
 };
 
-// Main logic
-const queueReviews = () => {
-  const reviews = document.querySelectorAll('.jftiEf.fontBodyMedium');
-  const newReviews = Array.from(reviews).filter(
-    (review) => !reviewMap[review.getAttribute('data-review-id')]
-  );
-  if (newReviews.length) parseReviews(newReviews);
-};
-
+// Observer
 const observer = new MutationObserver(() => {
+  const isPlace = /\/place\//.test(location.href);
+  if (!isPlace) { document.querySelector('#reviews-container')?.remove(); return; }
+
   const placeName = location.href.match(/(?:place\/)([^\/]+)/)?.[1];
-  const reviews = document.querySelectorAll('.jftiEf.fontBodyMedium');
-  if (reviews.length > 4) {
-    if (placeName !== lastPlaceName) {
-      lastPlaceName = placeName;
-      reset();
-    }
-    queueReviews();
-  } else {
-    reset();
+  if (placeName !== lastPlaceName) {
+    lastPlaceName = placeName;
+    resetScores();
     document.querySelector('#reviews-container')?.remove();
+    startFetching();
   }
-});
-
-// Scrolling functions
-const scrollToLastReview = () => {
-  const reviews = document.querySelectorAll('[data-review-id]');
-  const lastReview = [...reviews].pop();
-  if (lastReview) lastReview.scrollIntoView();
-  else console.error('No review found');
-};
-
-const checkStabilization = (currentPercentage) => {
-  if (lastPercentage === null) {
-    lastPercentage = currentPercentage;
-    return false;
-  }
-  const isStabilized = Math.abs(currentPercentage - lastPercentage) <= 1;
-  lastPercentage = currentPercentage;
-  return isStabilized;
-};
-
-const waitForNewReviews = async (timeout = 5000) => {
-  const startTime = Date.now();
-  const initialReviewCount = document.querySelectorAll('[data-review-id]').length;
-  while (Date.now() - startTime < timeout) {
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    if (document.querySelectorAll('[data-review-id]').length > initialReviewCount) return true;
-  }
-  return false;
-};
-
-const scrollUntilStabilized = async () => {
-  if (isScrolling) return;
-  isScrolling = true;
-  lastPercentage = null;
-  while (isScrolling) {
-    scrollToLastReview();
-    const newReviewsAppeared = await waitForNewReviews();
-    if (!newReviewsAppeared) {
-      console.log('No new reviews appeared after 5 seconds. Stopping scroll.');
-      break;
-    }
-    queueReviews();
-    const newPercentage = Math.round(getReviewScorePercentage() * 100);
-    if (checkStabilization(newPercentage)) break;
+  if (!document.querySelector('#reviews-container') && getFeatureId()) {
     updateUI();
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-  isScrolling = false;
-  updateUI();
-  console.log('Scrolling finished. Reviews have stabilized or all reviews have been loaded.');
-};
-
-const scrollToFirstReview = () => {
-  document.querySelector('.fontDisplayLarge')?.scrollIntoView();
-};
-
-// Initialize
-const loadStyles = () => {
-  const link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.href = 'styles.css';
-  document.head.appendChild(link);
-};
-
-loadStyles();
-observer.observe(document.body, { childList: true, subtree: true });
-
-// Update keyboard shortcut for Mac
-document.addEventListener('keydown', (event) => {
-  if (event.altKey) {
-    event.preventDefault();
-    scrollUntilStabilized();
+    if (!scores.relevant.isFetching && !scores.relevant.done) startFetching();
   }
 });
+
+observer.observe(document.body, { childList: true, subtree: true });

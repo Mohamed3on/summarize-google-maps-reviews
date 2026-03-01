@@ -10,7 +10,7 @@
       "matches": ["*://*.google.com/maps/*"],
       "js": ["recent-reviews.js"],
       "css": ["styles.css"],
-
+      "world": "MAIN",
       "run_at": "document_end"
     }
   ]
