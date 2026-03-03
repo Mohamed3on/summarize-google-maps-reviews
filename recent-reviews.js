@@ -166,8 +166,19 @@ const processReview = (review, sortKey) => {
   });
 };
 
-const summarizeReviews = async (reviewTexts) => {
-  const prompt = `Analyze these ${reviewTexts.length} reviews. Extract specific highlights mentioned by 2+ people.
+const summarizeReviews = async (reviewTexts, filterQuery) => {
+  const prompt = filterQuery
+    ? `Analyze these ${reviewTexts.length} reviews that mention "${filterQuery}". Focus specifically on what people say about "${filterQuery}".
+
+Rules:
+- Every highlight must be about "${filterQuery}" — what people liked, disliked, or noted about it
+- Be SPECIFIC: exact details, comparisons, opinions — never generic
+- Each highlight can be up to 15 words
+- Max 8 highlights, ordered by frequency
+- Verdict: 2-3 sentences summarizing the consensus on "${filterQuery}" specifically
+
+${reviewTexts.map((t, i) => `${i + 1}. ${t}`).join('\n')}`
+    : `Analyze these ${reviewTexts.length} reviews. Extract specific highlights mentioned by 2+ people.
 
 Rules:
 - Be SPECIFIC: name exact dishes, items, features, staff, locations — never generic ("good food", "nice staff")
@@ -360,8 +371,12 @@ const createUIElements = () => {
   const searchResults = el('div', 'rc-search-results');
   searchResults.style.display = 'none';
   searchSec.appendChild(searchResults);
+  const filteredSumPanel = el('div', 'rc-summary-panel');
+  filteredSumPanel.style.display = 'none';
+  searchSec.appendChild(filteredSumPanel);
   c.appendChild(searchSec);
   cardEls.searchResults = searchResults;
+  cardEls.filteredSumPanel = filteredSumPanel;
 
   document.body.appendChild(c);
 };
@@ -457,7 +472,7 @@ const renderSummary = (panel, result) => {
 };
 
 const triggerSummarize = async (filtered) => {
-  const panel = cardEls.sumPanel;
+  const panel = filtered ? cardEls.filteredSumPanel : cardEls.sumPanel;
   if (!panel) return;
   panel.style.display = 'block';
   panel.textContent = 'Summarizing…';
@@ -467,16 +482,14 @@ const triggerSummarize = async (filtered) => {
   const combined = { ...scores.relevant.reviewMap, ...scores.newest.reviewMap };
   let reviews = Object.values(combined).filter(r => r.text);
 
-  if (filtered) {
-    const query = cardEls.searchInput?.value?.trim();
-    if (query) reviews = reviews.filter(r => r.text.toLowerCase().includes(query.toLowerCase()));
-  }
+  const query = filtered ? cardEls.searchInput?.value?.trim() : null;
+  if (query) reviews = reviews.filter(r => r.text.toLowerCase().includes(query.toLowerCase()));
 
   const texts = [...new Set(reviews.map(r => r.text))].sort((a, b) => b.length - a.length).slice(0, reviewLimit);
   if (!texts.length) { panel.textContent = 'No review text available'; panel.className = 'rc-summary-panel'; return; }
 
   try {
-    const result = await summarizeReviews(texts);
+    const result = await summarizeReviews(texts, query);
     summaryCache[filtered ? 'filtered' : 'all'] = result;
     saveSummaryCache();
     renderSummary(panel, result);
@@ -492,7 +505,7 @@ const updateSearchSection = () => {
   const res = cardEls.searchResults;
   if (!res) return;
   const query = cardEls.searchInput?.value?.trim();
-  if (!query) { res.style.display = 'none'; return; }
+  if (!query) { res.style.display = 'none'; if (cardEls.filteredSumPanel) cardEls.filteredSumPanel.style.display = 'none'; return; }
 
   // Combine both sort keys for larger sample
   const combined = { ...scores.relevant.reviewMap, ...scores.newest.reviewMap };
