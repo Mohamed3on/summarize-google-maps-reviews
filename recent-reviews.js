@@ -411,11 +411,11 @@ const updateUI = () => {
       const pct = getRoundedPct(key);
       const diff = pct - fullPct;
       const sign = diff > 0 ? '+' : '';
-      lines.push(`${getTrendIcon(diff)} ${SORT_LABELS[key]} ${sign}${diff}% vs overall (${fullPct}%)`);
+      const cls = diff > 1 ? 'positive' : diff < -1 ? 'negative' : 'neutral';
+      lines.push(`<span class="${cls}">${getTrendIcon(diff)} ${SORT_LABELS[key]} ${sign}${diff}% vs overall (${fullPct}%)</span>`);
     }
-    trendEl.textContent = lines.join('\n');
-    const worst = Math.min(...SORT_KEYS.filter(k => getReviewCount(k) > 0).map(k => getRoundedPct(k) - fullPct));
-    trendEl.className = `rc-trend ${worst > 1 ? 'positive' : worst < -1 ? 'negative' : 'neutral'}`;
+    trendEl.innerHTML = lines.join('\n'); // all values are computed numbers, safe
+    trendEl.className = 'rc-trend';
   } else if (hasData && !anyFetching) {
     const diff = getRoundedPct('newest') - getRoundedPct('relevant');
     if (Math.abs(diff) <= 1) { trendEl.textContent = '→ Consistent across sort orders'; trendEl.className = 'rc-trend neutral'; }
