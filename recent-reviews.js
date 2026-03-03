@@ -398,8 +398,8 @@ const updateUI = () => {
       // Color based on diff vs overall if available, otherwise absolute
       if (fullPct !== null) {
         const diff = pctRound - fullPct;
-        // Map diff to 0-1 range: -30 or worse → 0 (red), 0 → 0.5 (yellow), +30 or more → 1 (green)
-        const diffNorm = Math.max(0, Math.min(1, (diff + 30) / 60));
+        // Map diff to 0-1 range: -10 or worse → 0 (red), 0 → 0.5 (yellow), +10 or more → 1 (green)
+        const diffNorm = Math.max(0, Math.min(1, (diff + 10) / 20));
         const color = getScoreColor(diffNorm);
         els.pctEl.style.color = color;
         els.pctEl.style.textShadow = `0 0 24px ${color}40`;
