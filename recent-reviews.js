@@ -36,7 +36,6 @@ const scores = { relevant: makeState(), newest: makeState() };
 // Helpers
 const getReviewCount = (sortKey) => Object.keys(scores[sortKey].reviewMap).length;
 const getRoundedPct = (sortKey) => Math.round(getScorePercentage(sortKey) * 100);
-const getTrendIcon = (diff) => diff > 1 ? '↗' : diff < -1 ? '↘' : '→';
 
 const resetScores = () => {
   for (const key of SORT_KEYS) {
@@ -323,17 +322,14 @@ const createUIElements = () => {
     const barFill = el('div', 'rc-card-bar-fill');
     bar.appendChild(barFill);
     card.appendChild(bar);
+    const diffEl = el('div', 'rc-card-diff');
+    card.appendChild(diffEl);
     const detailEl = el('div', 'rc-card-detail');
     card.appendChild(detailEl);
     grid.appendChild(card);
-    cardEls[sort] = { card, pctEl, barFill, countEl, detailEl };
+    cardEls[sort] = { card, pctEl, barFill, countEl, diffEl, detailEl };
   }
   c.appendChild(grid);
-
-  // Trend
-  const trend = el('div'); trend.id = 'rc-trend';
-  c.appendChild(trend);
-  cardEls.trend = trend;
 
   // Summarize row: button + review count toggle
   const sumRow = el('div', 'rc-sum-row');
@@ -384,6 +380,8 @@ const createUIElements = () => {
 const updateUI = () => {
   if (!document.querySelector('#reviews-container')) createUIElements();
 
+  const fullPct = calculateFullPercentage();
+
   for (const sortKey of SORT_KEYS) {
     const state = scores[sortKey];
     const els = cardEls[sortKey];
@@ -397,12 +395,28 @@ const updateUI = () => {
 
     if (count > 0) {
       els.pctEl.textContent = `${pctRound}%`;
-      const color = getScoreColor(Math.max(0, pct));
-      els.pctEl.style.color = color;
-      els.pctEl.style.textShadow = `0 0 24px ${color}40`;
+      // Color based on diff vs overall if available, otherwise absolute
+      if (fullPct !== null) {
+        const diff = pctRound - fullPct;
+        // Map diff to 0-1 range: -30 or worse → 0 (red), 0 → 0.5 (yellow), +30 or more → 1 (green)
+        const diffNorm = Math.max(0, Math.min(1, (diff + 30) / 60));
+        const color = getScoreColor(diffNorm);
+        els.pctEl.style.color = color;
+        els.pctEl.style.textShadow = `0 0 24px ${color}40`;
+        const sign = diff > 0 ? '+' : '';
+        els.diffEl.textContent = `${sign}${diff}% vs overall`;
+        els.diffEl.style.color = color;
+        els.diffEl.style.display = '';
+      } else {
+        const color = getScoreColor(Math.max(0, pct));
+        els.pctEl.style.color = color;
+        els.pctEl.style.textShadow = `0 0 24px ${color}40`;
+        els.diffEl.style.display = 'none';
+      }
     } else {
       els.pctEl.textContent = '—';
       els.pctEl.style.color = ''; els.pctEl.style.textShadow = '';
+      els.diffEl.style.display = 'none';
     }
 
     // Maps pct from [-1,1] → [0%,100%] for bar width
@@ -412,38 +426,6 @@ const updateUI = () => {
     els.card.classList.toggle('loading', state.isFetching);
     els.card.classList.toggle('done', state.done);
   }
-
-  // Trend — compare each sort vs overall baseline from star breakdown
-  const trendEl = cardEls.trend;
-  const fullPct = calculateFullPercentage();
-  const hasData = SORT_KEYS.some(k => getReviewCount(k) > 0);
-  const anyFetching = SORT_KEYS.some(k => scores[k].isFetching);
-
-  if (fullPct !== null && hasData) {
-    const lines = [];
-    for (const key of SORT_KEYS) {
-      if (getReviewCount(key) === 0) continue;
-      const pct = getRoundedPct(key);
-      const diff = pct - fullPct;
-      const sign = diff > 0 ? '+' : '';
-      const cls = diff > 1 ? 'positive' : diff < -1 ? 'negative' : 'neutral';
-      lines.push(`<span class="${cls}">${getTrendIcon(diff)} ${SORT_LABELS[key]} ${sign}${diff}% vs overall (${fullPct}%)</span>`);
-    }
-    trendEl.innerHTML = lines.join('\n'); // all values are computed numbers, safe
-    trendEl.className = 'rc-trend';
-  } else if (hasData && !anyFetching) {
-    const diff = getRoundedPct('newest') - getRoundedPct('relevant');
-    if (Math.abs(diff) <= 1) { trendEl.textContent = '→ Consistent across sort orders'; trendEl.className = 'rc-trend neutral'; }
-    else if (diff > 0) { trendEl.textContent = `↗ Newest +${diff}% vs Relevant`; trendEl.className = 'rc-trend positive'; }
-    else { trendEl.textContent = `↘ Newest ${diff}% vs Relevant`; trendEl.className = 'rc-trend negative'; }
-  } else if (anyFetching) {
-    trendEl.textContent = 'Analyzing reviews…';
-    trendEl.className = 'rc-trend loading';
-  } else {
-    trendEl.textContent = '';
-    trendEl.className = 'rc-trend';
-  }
-
 };
 
 // Summarize

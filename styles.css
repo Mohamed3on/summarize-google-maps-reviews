@@ -252,32 +252,12 @@
   100% { filter: brightness(1); }
 }
 
-/* Trend */
-#rc-trend {
-  font-size: 11px;
+/* Diff label inside card */
+.rc-card-diff {
+  font-size: 10px;
   font-weight: 500;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  letter-spacing: 0.01em;
-  line-height: 1.6;
-  white-space: pre-line;
-  transition: all 0.3s;
-}
-
-#rc-trend:empty { display: none; }
-
-#rc-trend.positive { color: #4ADE80; border-color: rgba(74, 222, 128, 0.1); }
-#rc-trend.negative { color: #F87171; border-color: rgba(248, 113, 113, 0.1); }
-#rc-trend.neutral { color: rgba(255, 255, 255, 0.4); }
-#rc-trend .positive { color: #4ADE80; }
-#rc-trend .negative { color: #F87171; }
-#rc-trend .neutral { color: rgba(255, 255, 255, 0.4); }
-
-#rc-trend.loading {
-  color: rgba(255, 255, 255, 0.3);
-  animation: rc-pulse 1.8s ease-in-out infinite;
+  letter-spacing: 0.02em;
+  margin-top: 2px;
 }
 
 /* Summarize row */
