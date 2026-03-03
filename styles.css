@@ -21,6 +21,7 @@
   animation: rc-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   max-height: calc(100vh - 32px);
   overflow-y: auto;
+  padding-bottom: 24px;
 }
 
 /* Accent top border */
