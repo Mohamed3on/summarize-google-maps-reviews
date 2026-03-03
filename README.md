@@ -2,6 +2,8 @@
 
 This extension summarizes Google Maps reviews into a digestible score, allowing you to quickly assess the overall quality of a place without reading all the reviews. It prioritizes trusted reviews from users with more than 3 reviews to minimize the impact of fake accounts and emphasize genuine feedback.
 
+![Screenshot](screenshot.png)
+
 ## How It Works
 
 1. Filters out reviews from accounts with less than 3 reviews to focus on more reliable feedback.
